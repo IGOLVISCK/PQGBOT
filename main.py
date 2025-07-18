@@ -1,15 +1,28 @@
 import random
 import discord
 import yt_dlp # é uma biblioteca Python baseada no youtube-dl PARA TOCAR MUSICAS DO YOUTUBE
+from yt_dlp import YoutubeDL
 import asyncio
+import os
 from discord.utils import get
 from discord import app_commands
 from discord.ext import commands, tasks
+os.makedirs("downloads", exist_ok=True)
 
 intents = discord.Intents.all() #ARMAZENA AS PERMISSOES QUE O BOT TERA NA VARIAVEL INTENTS
 bot = commands.Bot(".", intents=intents)
 intents.members = True # # Importante para acessar e modificar cargos de membros
 intents.message_content = True
+
+# Especificar o caminho para o ffmpeg
+ffmpeg_path = r"C:\\ffmpeg\\ffmpeg-7.1.1-essentials_build\\bin\\ffmpeg.exe"
+
+# Verificando se o FFmpeg existe no caminho
+if os.path.exists(ffmpeg_path):
+    print(f"FFmpeg encontrado em: {ffmpeg_path}")
+else:
+    print(f"FFmpeg não encontrado no caminho: {ffmpeg_path}")
+
 
 @bot.event
 async def on_ready(): #Função sera iniciada quando o bot estiver pronto
@@ -58,6 +71,38 @@ async def enviar_embed(ctx:commands.Context):
     minha_embed.description = "DESCRIÇÃO DA EMBED"
     await ctx.reply(embed=minha_embed, ephemeral=True)
 
+
+#COMANDO HELP
+@bot.tree.command(name="help", description="Mostra a lista de comandos do PQGBOT")
+async def help_command(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="📋 Lista de Comandos do PQGBOT 🦅",
+        description="Aqui estão os comandos disponíveis:",
+        color=discord.Color.blue()
+    )
+
+    embed.add_field(name="❗❗IMPORTANTE", value="É IMPORTANTE QUE O PQGBOT TENHA CARGO DE ADMINISTRADOR E PERMISSÕES PARA FAZER MODIFICAÇÕES NO SERVIDOR!", inline=False)
+    embed.add_field(name="📖 /help", value="Exibe os comandos do PQGBOT", inline=False)
+    embed.add_field(name="👋 /ola", value="Responde sua mensagem", inline=False)
+    embed.add_field(name="⚙️ .configurar", value="Configura o servidor com os canais necessários para o funcionamento do bot", inline=False)
+    embed.add_field(name="🧹 .clear (numero de mensagens)", value="Apaga o número de mensagens desejado (até 100)", inline=False)
+    embed.add_field(name="👍 .darcargo @ (nomedocargo)", value="Atribui o cargo desejado ao usuário mencionado", inline=False)
+    embed.add_field(name="👎 .tirarcargo", value="Retira o cargo desejado do usuário mencionado", inline=False)
+    embed.add_field(name="🪙 /flip", value="Tira Cara ou Coroa", inline=False)
+    embed.add_field(name="☑️ .entrar", value="O PQGBOT entra no canal de voz do usuário", inline=False)
+    embed.add_field(name="❌ .sair", value="O PQGBOT sai do canal de voz do usuário", inline=False)
+    embed.add_field(name="🎵 .play (nome da música/link YouTube)", value="Toca a música desejada", inline=False)
+    embed.add_field(name="▶️▶️ .skip", value="Pula para a próxima música da fila", inline=False)
+    embed.add_field(name="🔈❌ .stop", value="Para de tocar as músicas e sai do canal", inline=False)
+    embed.add_field(name="💼 .criarcargo (nome do cargo)", value="Cria um cargo com o nome desejado", inline=False)
+    embed.add_field(name="💼❌ .apagarcargo (nome do cargo)", value="Apaga o cargo com o nome mencionado", inline=False)
+    embed.add_field(name="🔨 .banir @ (motivo)", value="Bane o usuário mencionado(@) com o motivo apresentado", inline=False)
+    embed.add_field(name="🩹 .desbanir (Nome#1234)", value="Retira o banimento do usuário citado", inline=False)
+    embed.add_field(name="😠 .expulsar @ (motivo)", value="Expulsa o usuário mencionado com o motivo apresentado", inline=False)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 ##########ADICIONANDO CARGOS##############
 @bot.command()
 @commands.has_permissions(manage_roles=True) #Exige que o autor do comando tenha permissão para dar cargos
@@ -97,7 +142,7 @@ async def dar_cargo_error(ctx, error):
 ##########REMOVENDO CARGOS##############
 @bot.command()
 @commands.has_permissions(manage_roles=True)
-async def removecargo(ctx, membro: discord.Member, *, nome_cargo):
+async def tirarcargo(ctx, membro: discord.Member, *, nome_cargo):
     canal = get(ctx.guild.text_channels, name="administrativo")
     cargo = discord.utils.get(ctx.guild.roles, name = nome_cargo)
 
@@ -114,7 +159,7 @@ async def removecargo(ctx, membro: discord.Member, *, nome_cargo):
     except Exception as e:
         await canal.send(f"❌ Ocorreu um erro: {e}")
 
-@removecargo.error
+@tirarcargo.error
 async def remove_cargo_error(ctx, error):
     canal = get(ctx.guild.text_channels, name="administrativo")
     if isinstance(error, commands.MissingPermissions):
@@ -133,6 +178,8 @@ async def flip(interact:discord.Interaction):
     flip_list = ['CARA', 'COROA']
     flip_sorteio = random.sample(flip_list, 1)[0] #[0] pega só o resultado
     await interact.response.send_message(f"🪙FLIP: {flip_sorteio}")
+
+
 
 #COMANDO CLEAR
 @bot.command(name='clear')
@@ -154,6 +201,8 @@ async def clear_error(ctx, error):
 ###############TOCANDO MUSICAS DO YOUTUBE#################
 # --- Baixar áudio do YouTube ---
 def get_audio_source(url):
+    os.makedirs("downloads", exist_ok=True)  # garante que a pasta exista
+
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
@@ -164,15 +213,17 @@ def get_audio_source(url):
         'outtmpl': 'downloads/%(id)s.%(ext)s',
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
         if 'entries' in info:
-            info = info['entries'][0]
+            info = info['entries'][0]  # Se for uma playlist ou busca
 
         audio_url = info['url']
-        title = info.get('title', 'Música Desconhecida')
+        title = info.get('title', 'Título Desconhecido')
 
-        source = discord.FFmpegPCMAudio(audio_url)
+        # Usa o caminho direto para o FFmpeg
+        source = discord.FFmpegPCMAudio(audio_url, executable=ffmpeg_path)
+
         return source, title
 
 
@@ -222,6 +273,8 @@ async def play(ctx, *, url):
 queues = {}
 
 def get_audio_source(url):
+    os.makedirs("downloads", exist_ok=True)  # garante que a pasta exista
+
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
@@ -232,15 +285,17 @@ def get_audio_source(url):
         'outtmpl': 'downloads/%(id)s.%(ext)s',
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
         if 'entries' in info:
-            info = info['entries'][0]
+            info = info['entries'][0]  # Se for uma playlist ou busca
 
         audio_url = info['url']
-        title = info.get('title', 'Música Desconhecida')
+        title = info.get('title', 'Título Desconhecido')
 
-        source = discord.FFmpegPCMAudio(audio_url)
+        # Usa o caminho direto para o FFmpeg
+        source = discord.FFmpegPCMAudio(audio_url, executable=ffmpeg_path)
+
         return source, title
 
 
