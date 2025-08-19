@@ -477,4 +477,4 @@ async def configurar(ctx):
 
 
 
-bot.run("MTM5MTE1MzIzMTQxMjg1NDc4NA.GsYh1U.ECqJc4RshCKLlKX-uhp6lmFX2Hb4m2rHKTryfU")
+bot.run("<chave do bot>")
